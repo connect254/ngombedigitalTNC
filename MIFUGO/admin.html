@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Mifugo Admin - Manage Listings</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <meta
+      name="description"
+      content="Admin dashboard mockup for Mifugo marketplace"
+    />
+  </head>
+  <body class="bg-green-50 text-gray-900 antialiased">
+    <div class="max-w-3xl mx-auto p-4">
+      <header class="flex items-center justify-between mb-4">
+        <div class="flex items-center">
+          <div
+            class="w-12 h-12 rounded-full bg-green-700 flex items-center justify-center text-white font-bold"
+          >
+            M
+          </div>
+          <div class="ml-3">
+            <h1 class="text-lg font-extrabold">Mifugo Admin</h1>
+            <p class="text-xs text-gray-600">
+              Manage listings (stored locally in your browser)
+            </p>
+          </div>
+        </div>
+        <a
+          href="index.html"
+          class="px-3 py-1 rounded bg-white text-green-700 border"
+          >Open Site</a
+        >
+      </header>
+
+      <section class="bg-white rounded-xl p-4 shadow-sm border">
+        <h2 class="font-semibold">Add / Edit Listing</h2>
+        <form id="listing-form" class="mt-3 grid grid-cols-1 gap-2">
+          <input id="id" type="hidden" />
+          <input
+            id="title"
+            placeholder="Title (e.g., Healthy Boran Cow)"
+            class="px-3 py-2 rounded border"
+          />
+          <div class="grid grid-cols-2 gap-2">
+            <input
+              id="price"
+              type="number"
+              placeholder="Price (KES)"
+              class="px-3 py-2 rounded border"
+            />
+            <input
+              id="type"
+              placeholder="Type (Cow, Goat, Poultry)"
+              class="px-3 py-2 rounded border"
+            />
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <input
+              id="location"
+              placeholder="Location (e.g., Kitui)"
+              class="px-3 py-2 rounded border"
+            />
+            <input
+              id="sellerPhone"
+              placeholder="Seller phone (+2547...)"
+              class="px-3 py-2 rounded border"
+            />
+          </div>
+          <input
+            id="sellerName"
+            placeholder="Seller name"
+            class="px-3 py-2 rounded border"
+          />
+          <input
+            id="image"
+            placeholder="Image URL (optional)"
+            class="px-3 py-2 rounded border"
+          />
+          <textarea
+            id="description"
+            rows="3"
+            placeholder="Short description"
+            class="px-3 py-2 rounded border"
+          ></textarea>
+
+          <div class="flex gap-2">
+            <button
+              type="submit"
+              class="px-4 py-2 bg-green-700 text-white rounded"
+            >
+              Save Listing
+            </button>
+            <button
+              type="button"
+              id="reset-btn"
+              class="px-4 py-2 bg-gray-100 rounded"
+            >
+              Clear
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <section class="mt-4 bg-white rounded-xl p-4 shadow-sm border">
+        <h3 class="font-semibold">Current Listings</h3>
+        <div id="admin-list" class="mt-3 space-y-2"></div>
+      </section>
+
+      <footer class="mt-6 text-center text-xs text-gray-600 pb-8">
+        Admin changes are saved to your browser's localStorage (no server).
+      </footer>
+    </div>
+
+    <script>
+      const LS_KEY = "mifugo_listings";
+      const SAMPLE = [];
+
+      function loadListings() {
+        try {
+          const raw = localStorage.getItem(LS_KEY);
+          if (!raw) return [];
+          return JSON.parse(raw);
+        } catch (e) {
+          console.error(e);
+          return [];
+        }
+      }
+
+      function saveListings(list) {
+        localStorage.setItem(LS_KEY, JSON.stringify(list));
+      }
+
+      let listings = loadListings();
+
+      const form = document.getElementById("listing-form");
+      const adminList = document.getElementById("admin-list");
+
+      function renderAdmin() {
+        adminList.innerHTML = "";
+        if (listings.length === 0) {
+          adminList.innerHTML =
+            '<div class="text-gray-600">No listings yet. Use the form above to add one.</div>';
+          return;
+        }
+
+        listings
+          .slice()
+          .reverse()
+          .forEach((l) => {
+            const el = document.createElement("div");
+            el.className =
+              "p-3 border rounded flex items-start justify-between gap-3";
+            el.innerHTML = `
+          <div class="flex-1">
+            <div class="font-semibold">${escapeHtml(l.title)} ${
+              l.sold
+                ? '<span class="text-xs text-white bg-gray-500 px-2 py-0.5 rounded ml-2">SOLD</span>'
+                : ""
+            }</div>
+            <div class="text-xs text-gray-600">${escapeHtml(
+              l.type
+            )} • ${escapeHtml(l.location)} • Ksh ${Number(
+              l.price
+            ).toLocaleString()}</div>
+            <div class="text-xs text-gray-600 mt-1">Seller: ${escapeHtml(
+              l.sellerName
+            )} • ${escapeHtml(l.sellerPhone)}</div>
+            <div class="text-xs text-gray-700 mt-1">${escapeHtml(
+              l.description
+            )}</div>
+          </div>
+          <div class="flex flex-col gap-2">
+            <button class="edit btn px-3 py-1 bg-white border rounded text-sm">Edit</button>
+            <button class="toggle-sold btn px-3 py-1 rounded text-sm ${
+              l.sold ? "bg-yellow-400" : "bg-green-700 text-white"
+            }">${l.sold ? "Mark Unsold" : "Mark Sold"}</button>
+            <button class="delete btn px-3 py-1 bg-red-500 text-white rounded text-sm">Delete</button>
+          </div>
+        `;
+
+            // attach handlers
+            el.querySelector(".edit").addEventListener("click", () =>
+              loadIntoForm(l)
+            );
+            el.querySelector(".delete").addEventListener("click", () => {
+              if (confirm("Delete this listing?")) {
+                listings = listings.filter((x) => x.id !== l.id);
+                saveListings(listings);
+                renderAdmin();
+              }
+            });
+            el.querySelector(".toggle-sold").addEventListener("click", (ev) => {
+              l.sold = !l.sold;
+              saveListings(listings);
+              renderAdmin();
+            });
+
+            adminList.appendChild(el);
+          });
+      }
+
+      function resetForm() {
+        form.reset();
+        document.getElementById("id").value = "";
+      }
+
+      function loadIntoForm(l) {
+        document.getElementById("id").value = l.id;
+        document.getElementById("title").value = l.title;
+        document.getElementById("price").value = l.price;
+        document.getElementById("type").value = l.type;
+        document.getElementById("location").value = l.location;
+        document.getElementById("sellerPhone").value = l.sellerPhone;
+        document.getElementById("sellerName").value = l.sellerName;
+        document.getElementById("image").value = l.image;
+        document.getElementById("description").value = l.description;
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+
+      form.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const idVal = document.getElementById("id").value;
+        const title = document.getElementById("title").value.trim();
+        const price = Number(document.getElementById("price").value);
+        const type = document.getElementById("type").value.trim();
+        const location = document.getElementById("location").value.trim();
+        const sellerPhone = document.getElementById("sellerPhone").value.trim();
+        const sellerName = document.getElementById("sellerName").value.trim();
+        const image = document.getElementById("image").value.trim();
+        const description = document.getElementById("description").value.trim();
+
+        if (!title || !price || !type || !location || !sellerPhone) {
+          alert("Please fill title, price, type, location and seller phone");
+          return;
+        }
+
+        if (idVal) {
+          // edit
+          listings = listings.map((it) =>
+            it.id === Number(idVal)
+              ? {
+                  ...it,
+                  title,
+                  price,
+                  type,
+                  location,
+                  sellerPhone,
+                  sellerName,
+                  image,
+                  description,
+                }
+              : it
+          );
+        } else {
+          const newId = listings.length
+            ? Math.max(...listings.map((x) => x.id)) + 1
+            : 1;
+          listings.push({
+            id: newId,
+            title,
+            price,
+            type,
+            location,
+            sellerPhone,
+            sellerName,
+            image,
+            description,
+            sold: false,
+          });
+        }
+
+        saveListings(listings);
+        renderAdmin();
+        resetForm();
+      });
+
+      document.getElementById("reset-btn").addEventListener("click", resetForm);
+
+      function escapeHtml(unsafe) {
+        if (!unsafe && unsafe !== 0) return "";
+        return String(unsafe).replace(/[&<>"'`]/g, function (s) {
+          return {
+            "&": "&amp;",
+            "<": "&lt;",
+            ">": "&gt;",
+            '"': "&quot;",
+            "'": "&#39;",
+            "`": "&#96;",
+          }[s];
+        });
+      }
+
+      // initialize if no listings stored, seed from sample in index.html if present
+      (function init() {
+        if (!localStorage.getItem(LS_KEY)) {
+          // try to seed basic listings (same as index sample)
+          localStorage.setItem(
+            LS_KEY,
+            JSON.stringify([
+              {
+                id: 1,
+                title: "Healthy Boran Cow (Adult)",
+                price: 65000,
+                location: "Kitui",
+                type: "Cow",
+                sellerName: "John Mwangi",
+                sellerPhone: "+254712345678",
+                image: "",
+                description: "Healthy Boran cow, 4 years old, vaccinated.",
+                sold: false,
+              },
+              {
+                id: 2,
+                title: "Boer Goat - Male",
+                price: 12000,
+                location: "Embu",
+                type: "Goat",
+                sellerName: "Amina Yusuf",
+                sellerPhone: "+254700111222",
+                image: "",
+                description: "Young boer goat perfect for breeding.",
+                sold: false,
+              },
+              {
+                id: 3,
+                title: "Free-range Chickens (10)",
+                price: 4500,
+                location: "Nakuru",
+                type: "Poultry",
+                sellerName: "Peter Otieno",
+                sellerPhone: "+254733999888",
+                image: "",
+                description: "Ten healthy free-range chickens. Great layers.",
+                sold: false,
+              },
+            ])
+          );
+        }
+        listings = loadListings();
+        renderAdmin();
+      })();
+    </script>
+  </body>
+</html>
